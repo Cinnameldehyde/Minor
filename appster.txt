@@ -1,0 +1,48 @@
+import streamlit as st
+import numpy as np
+import tensorflow.lite as tflite
+from PIL import Image
+
+# Load labels from labels.txt
+def load_labels(filename):
+    with open(filename, "r") as f:
+        return {int(line.split(":")[0]): line.split(":")[1].strip() for line in f}
+
+# Load TFLite model
+interpreter = tflite.Interpreter(model_path="model3.tflite")
+interpreter.allocate_tensors()
+
+# Get input and output details
+input_details = interpreter.get_input_details()
+output_details = interpreter.get_output_details()
+
+# Load label names
+labels = load_labels("labels.txt")
+
+# Streamlit UI
+st.title("🚦 Road Sign Recognition Web App")
+st.write("Upload an image of a road sign to identify it.")
+
+# File uploader
+uploaded_file = st.file_uploader("Choose a road sign image...", type=["jpg", "png", "jpeg"])
+
+if uploaded_file:
+    # Display uploaded image
+    image = Image.open(uploaded_file)
+    st.image(image, caption="Uploaded Image", use_column_width=True)
+
+    # Preprocess image
+    image = image.resize((32, 32))  # Adjust size as per your model's input shape
+    image = np.array(image, dtype=np.float32)
+    image = np.expand_dims(image, axis=0)  # Add batch dimension
+    image /= 255.0  # Normalize if required
+
+    # Run inference
+    interpreter.set_tensor(input_details[0]["index"], image)
+    interpreter.invoke()
+    output_data = interpreter.get_tensor(output_details[0]["index"])
+    predicted_class = np.argmax(output_data)
+
+    # Display result
+    st.subheader("Prediction:")
+    st.write(f"**Detected Sign: {labels.get(predicted_class, 'Unknown')}**")
